@@ -1,0 +1,79 @@
+# RuMa Shalat — Panduan Shalat Anak
+
+Aplikasi web (PWA) panduan shalat untuk anak usia 4–12 tahun dari **RuMa Digital**. Bisa dibuka dari browser dan dipasang di HP lewat menu "Tambahkan ke Layar Utama". Setelah dibuka sekali, aplikasi tetap bisa dipakai tanpa internet. Pengecualiannya murattal Al-Qur'an, yang tetap butuh koneksi.
+
+Materi mengikuti **madzhab Syafi'i** seperti yang umum diajarkan di TPA dan sekolah di Indonesia.
+
+## Isi aplikasi
+
+| Menu | Isi |
+|---|---|
+| 💧 Wudhu | 10 langkah wudhu bergambar, fardhu & sunnah wudhu, pembatal wudhu, tayamum, niat & doa setelah wudhu |
+| 🧎 Gerakan Shalat | 12 gerakan dengan karakter animasi (putra berpeci / putri bermukena), penjelasan, dan bacaannya |
+| 📖 Bacaan Shalat | Semua bacaan dari takbir sampai salam (Arab, latin, arti, suara), Al-Fatihah + 11 surat pendek, mode hafalan |
+| ▶️ Ayo Praktik! | Simulasi shalat Subuh/Dzuhur/Ashar/Maghrib/Isya langkah demi langkah sesuai jumlah rakaat, bisa jalan otomatis |
+| 🕌 Jenis Shalat & Niat | 5 shalat wajib + Jumat, 9 shalat sunnah, rakaat, waktu, bacaan keras/pelan, lafaz niat, penjelasan kata dalam niat |
+| ✅ Syarat & Rukun | Syarat wajib, syarat sah, 13 rukun, sunnah ab'adh & hai'at, pembatal shalat, sujud sahwi |
+| 🤲 Doa Harian | 19 doa sehari-hari |
+| 📿 Dzikir & Tasbih | Tasbih digital 33-33-33 + urutan dzikir setelah shalat (termasuk Ayat Kursi) |
+| 🎯 Kuis | ±100 soal: Mudah (4–6 th), Sedang (7–9 th), Sulit (10–12 th), Tantangan Kilat 60 detik. Ada soal bergambar, soal teks Arab, dan soal menyusun urutan |
+| ⏰ Jadwal & Checklist | Jadwal shalat 49 kota (kriteria Kemenag) atau lokasi GPS, hitung mundur, checklist 5 waktu, riwayat 7 hari, arah kiblat |
+| ⭐ Bintangku | Bintang & 16 lencana |
+| 👨‍👩‍👧 Orang Tua | Nama anak, karakter, pilihan qari, **rekam suara Ayah/Bunda** untuk setiap bacaan, sumber materi |
+
+## Suara
+
+Urutan suara yang diputar untuk setiap bacaan:
+
+1. **Rekaman Ayah/Bunda** dari menu Orang Tua (disimpan di HP masing-masing).
+2. **File audio buatan sendiri** di folder `public/audio/` (lihat di bawah).
+3. **Murattal Al-Qur'an** dari EveryAyah, untuk Al-Fatihah, surat pendek, dan Ayat Kursi.
+4. **Suara bawaan HP** (text-to-speech). Kalau HP tidak punya suara bahasa Arab, yang dibacakan tulisan latinnya.
+
+### Menambah file audio sendiri (berlaku untuk semua pengguna)
+
+1. Simpan file suara di `public/audio/`, misalnya `public/audio/takbir.mp3`.
+2. Daftarkan di `public/audio/daftar.json` dengan format `{"id-bacaan": "nama-file"}`, contohnya:
+   ```json
+   {"takbir": "takbir.mp3", "ruku": "ruku.mp3", "d_makan": "doa-makan.mp3"}
+   ```
+3. Daftar id bacaan ada di `public/js/content.js` (contoh: `takbir`, `iftitah`, `ruku`, `niat_subuh`, `d_tidur`).
+
+## Mencoba di komputer
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/serve.ps1
+```
+Lalu buka http://localhost:8080.
+
+## Deploy ke Cloudflare
+
+Sama seperti RuMa Belajar: `wrangler.jsonc` menyajikan folder `public/` sebagai static assets. Hubungkan repo ini ke Cloudflare Workers (Workers Builds), atau jalankan `npx wrangler deploy`.
+
+**Setiap kali mengubah file aplikasi**, naikkan `VERSION` di `public/sw.js` (misalnya `ruma-shalat-v2`) supaya HP pengguna mengambil versi terbaru.
+
+## Sumber materi
+
+- Teks Al-Qur'an: Tanzil (quran-simple). Terjemahan: Kementerian Agama RI. Keduanya diambil lewat api.alquran.cloud dan dibuat otomatis oleh `tools/build-quran.ps1`.
+- Murattal: EveryAyah.com (Syaikh Mishary Alafasy, Al-Husary, Al-Minshawi).
+- Jadwal shalat: dihitung di perangkat (algoritma PrayTimes) dengan kriteria Kemenag RI: Subuh −20°, Isya −18°, Ashar madzhab Syafi'i, ihtiyat 2 menit.
+- Bacaan shalat, niat, doa, dan fikih dasar disusun mengikuti buku pelajaran fikih madzhab Syafi'i di Indonesia.
+
+> Sebelum dibagikan luas, sebaiknya materi diperiksa ulang oleh ustadz atau guru ngaji.
+
+## Struktur
+
+```
+public/
+  index.html, manifest.webmanifest, sw.js
+  css/app.css
+  js/app.js        tampilan & navigasi semua menu
+  js/content.js    semua materi (bacaan, niat, wudhu, rukun, doa, soal kuis, lencana)
+  js/quran.js      teks Al-Qur'an (dibuat otomatis, jangan diedit manual)
+  js/figure.js     ilustrasi & animasi gerakan shalat
+  js/praytimes.js  perhitungan jadwal shalat & kiblat
+  js/audio.js      pemutar suara, rekaman, efek suara
+  js/store.js      penyimpanan progres anak
+  icons/, audio/
+tools/             skrip pembuat quran.js, ikon, dan server lokal
+```

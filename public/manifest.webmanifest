@@ -1,0 +1,18 @@
+{
+  "name": "RuMa Shalat — Panduan Shalat Anak",
+  "short_name": "RuMa Shalat",
+  "description": "Panduan shalat lengkap untuk anak: wudhu, gerakan, bacaan, niat, jenis shalat, kuis, dan jadwal shalat.",
+  "lang": "id",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF6E6",
+  "theme_color": "#2A8C80",
+  "categories": ["education", "kids", "lifestyle"],
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
