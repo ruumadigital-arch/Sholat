@@ -1,5 +1,6 @@
 import {R, DOA, WUDHU, FARDHU_WUDHU, SUNNAH_WUDHU, PEMBATAL_WUDHU, TAYAMUM, GERAKAN, BACAAN, WAJIB, SUNNAH,
-  SYARAT_WAJIB, SYARAT_SAH, RUKUN, TUMAKNINAH, SUNNAH_ABAD, SUNNAH_HAIAT, PEMBATAL_SHALAT, SAHWI, DZIKIR, QUIZ, BADGES} from './content.js';
+  SYARAT_WAJIB, SYARAT_SAH, RUKUN, TUMAKNINAH, SUNNAH_ABAD, SUNNAH_HAIAT, PEMBATAL_SHALAT, SAHWI, DZIKIR, QUIZ, BADGES, quizKey} from './content.js';
+import {makeZip} from './zip.js';
 import {SURAH, AYAT_KURSI} from './quran.js';
 import {poseSVG, animateTo} from './figure.js';
 import {computeTimes, qibla, CITIES, ORDER, LABEL, WAJIB_KEYS} from './praytimes.js';
@@ -57,7 +58,7 @@ function gain(n, why = '') {
 // ---------- router ----------
 const ROUTES = {};
 const TITLE = {'': 'RuMa Shalat', wudhu: 'Wudhu', gerakan: 'Gerakan Shalat', bacaan: 'Bacaan Shalat', praktik: 'Ayo Praktik!', jenis: 'Jenis Shalat & Niat',
-  rukun: 'Syarat & Rukun', doa: 'Doa Harian', dzikir: 'Dzikir & Tasbih', kuis: 'Kuis', jadwal: 'Jadwal & Checklist', bintang: 'Bintangku', ortu: 'Untuk Orang Tua'};
+  rukun: 'Syarat & Rukun', doa: 'Doa Harian', dzikir: 'Dzikir & Tasbih', kuis: 'Kuis', jadwal: 'Jadwal & Checklist', bintang: 'Bintangku', ortu: 'Untuk Orang Tua', studio: 'Studio Rekam'};
 const go = path => { location.hash = '#/' + path; };
 function render() {
   A.stop();
@@ -69,7 +70,7 @@ function render() {
   const back = $('#back');
   back.hidden = !fn;
   $('#logo').hidden = !!fn;
-  back.onclick = () => (args.length && fn !== 'ortu' ? go(fn) : go(''));
+  back.onclick = () => (fn === 'studio' ? go('ortu/ok') : args.length && fn !== 'ortu' ? go(fn) : go(''));
   view.scrollTop = 0; window.scrollTo(0, 0);
   ROUTES[fn](...args);
 }
@@ -593,7 +594,7 @@ function wireQuestion(root, q, cb, {fast = false} = {}) {
   const sq = $('[data-sayq]', root);
   if (sq) sq.onclick = () => {
     const opts = $$('.opt, .chip', root).map(b => b.textContent.replace(/[^\p{L}\p{N}\s'-]/gu, '').trim()).filter(Boolean);
-    A.sayId(q.q.replace(/\.\.\.$/, '') + (opts.length ? '. ' + opts.join(', ') : ''), true);
+    A.play(quizKey(q), {tag: 'soal', fallback: q.q.replace(/\.\.\.$/, '') + (opts.length ? '. ' + opts.join(', ') : '')});
   };
   const correctText = q.order ? q.order.join(' → ') : q.poses ? '' : q.o[0];
   const fb = ok => {
@@ -643,7 +644,7 @@ function quiz(lv) {
       <div class="prog">${qs.map((_, k) => `<i class="${k < i ? 'done' : k === i ? 'now' : ''}"></i>`).join('')}</div><span class="sc">✔ ${score}</span></div>
       <div id="qbox">${questionHTML(qs[i])}</div>`;
     wireQuestion($('#qbox'), qs[i], ok => { if (ok) score++; i++; paint(); });
-    if (lv === 1 && !S.muted) A.sayId(qs[i].q.replace(/\.\.\.$/, ''));
+    if (lv === 1 && !S.muted) A.play(quizKey(qs[i]), {tag: 'soal', fallback: qs[i].q.replace(/\.\.\.$/, '')});
   };
   const end = () => {
     const st = score >= 9 ? 3 : score >= 7 ? 2 : score >= 5 ? 1 : 0;
@@ -789,13 +790,27 @@ ROUTES.bintang = () => {
 // =====================================================================
 // ORANG TUA
 // =====================================================================
+// naskah rekaman (bacaan yang lafaznya sama cukup direkam sekali, lihat A.ALIAS)
 const REC_GROUPS = [
-  ['Bacaan shalat', ['takbir', 'iftitah', 'taawudz', 'aamiin', 'ruku', 'itidal1', 'itidal2', 'qunut', 'sujud', 'duduk', 'tasyahud', 'shalawat_awal', 'shalawat_ibrahim', 'doa_akhir', 'salam', 'sujud_sahwi']],
+  ['Bacaan shalat', ['takbir', 'iftitah', 'taawudz', 'aamiin', 'ruku', 'itidal1', 'itidal2', 'qunut', 'sujud', 'duduk', 'tasyahud', 'shalawat_awal', 'shalawat_ibrahim', 'doa_akhir', 'salam', 'sujud_sahwi', 'takbir_id']],
   ['Niat shalat', Object.keys(R).filter(k => k.startsWith('niat_') && !['niat_wudhu', 'niat_tayamum'].includes(k))],
   ['Wudhu & tayamum', ['basmalah', 'niat_wudhu', 'doa_wudhu', 'niat_tayamum']],
-  ['Dzikir', ['istighfar', 'antassalam', 'tasbih', 'tahmid', 'takbir33', 'tahlil', 'takbir_id']],
-  ['Doa harian', DOA.map(d => d.id)],
+  ['Dzikir', ['istighfar', 'antassalam', 'tasbih', 'tahmid', 'tahlil']],
+  ['Doa harian', DOA.map(d => d.id).filter(id => !(id in A.ALIAS))],
 ];
+function studioItems(set) {
+  if (set === 'bacaan') return REC_GROUPS.flatMap(([g, ids]) => ids.map(key => ({key, group: g, t: R[key].t, r: R[key]})));
+  const seen = new Set(), out = [];
+  for (const q of QUIZ) {
+    const key = quizKey(q);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({key, group: 'Kuis ' + LV[q.lv][0], t: q.q, q});
+  }
+  return out;
+}
+let gateOk = false;
+
 ROUTES.ortu = unlocked => {
   if (unlocked !== 'ok') {
     const a = 3 + Math.floor(Math.random() * 6), b = 4 + Math.floor(Math.random() * 5);
@@ -805,26 +820,24 @@ ROUTES.ortu = unlocked => {
     $('#gok').onclick = ok; $('#gate').onkeydown = e => e.key === 'Enter' && ok(); $('#gate').focus();
     return;
   }
-  const rec = {};
+  gateOk = true;
   view.innerHTML = `
     <h3 class="sec">Profil anak</h3>
     <div class="stage text form">
       <label>Nama panggilan <input id="nm" maxlength="20" value="${esc(S.name)}" placeholder="mis. Aisyah"></label>
       <div><span class="lbl">Karakter</span>${genderToggle()}</div>
     </div>
-    <h3 class="sec">Suara</h3>
+    <h3 class="sec">🎙️ Suara Ayah/Bunda</h3>
+    <button class="modebtn" data-go="studio"><span class="ic" style="background:#E5E0F6">🎙️</span>
+      <span><b>Studio Rekam</b><small id="recsum">Rekam bacaan Arab & soal kuis dengan suaramu</small></span></button>
+    <h3 class="sec">Suara lainnya</h3>
     <div class="stage text form">
       <label>Qari murattal Al-Qur'an <select id="qari">${Object.entries(A.RECITERS).map(([k, v]) => `<option value="${k}"${k === S.reciter ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
       <label>Kecepatan suara bawaan HP <input type="range" id="rate" min="0.5" max="1.1" step="0.05" value="${S.rate}"></label>
-      <p class="hint">${A.hasArabicVoice() ? '✅ HP ini punya suara bahasa Arab bawaan.' : '⚠️ Suara bahasa Arab bawaan tidak ditemukan, jadi aplikasi membaca tulisan latinnya. Rekam suara Ayah/Bunda di bawah supaya pelafalannya pas.'}
+      <p class="hint">Suara bawaan HP dipakai untuk bacaan yang belum direkam dan untuk arti bahasa Indonesia.
+      ${A.hasArabicVoice() ? '✅ HP ini punya suara bahasa Arab bawaan.' : '⚠️ HP ini tidak punya suara bahasa Arab bawaan, jadi yang dibacakan tulisan latinnya.'}
       Murattal Al-Qur'an diputar dari EveryAyah dan butuh internet.</p>
     </div>
-    <h3 class="sec">🎙️ Rekam suara Ayah/Bunda</h3>
-    <p class="hint">Rekam bacaan dengan suara sendiri. Rekaman disimpan di HP ini dan otomatis diputar menggantikan suara bawaan.</p>
-    ${REC_GROUPS.map(([g, ids]) => `<details class="more recg"><summary>${esc(g)} <small>(${ids.length})</small></summary>
-      ${ids.map(id => `<div class="recrow" data-id="${id}"><span><b>${esc(R[id].t)}</b><small class="ar" lang="ar" dir="rtl">${R[id].ar.length > 60 ? R[id].ar.slice(0, 60) + '…' : R[id].ar}</small></span>
-        <span class="recbtns"><button class="rbtn rec" data-rec="${id}" aria-label="Rekam">●</button><button class="rbtn" data-recplay="${id}" aria-label="Putar" disabled>▶</button><button class="rbtn" data-recdel="${id}" aria-label="Hapus" disabled>🗑</button></span></div>`).join('')}
-    </details>`).join('')}
     <h3 class="sec">Tentang materi</h3>
     <div class="stage text">
       <p>Materi RuMa Shalat disusun mengikuti tuntunan <b>madzhab Syafi'i</b> yang umum diajarkan di TPA dan sekolah di Indonesia (misalnya doa qunut Subuh dan 13 rukun shalat).</p>
@@ -837,26 +850,179 @@ ROUTES.ortu = unlocked => {
   $('#nm').oninput = e => { S.name = e.target.value.trim(); save(); };
   wireGender(() => {});
   $('#qari').onchange = e => { S.reciter = e.target.value; save(); };
-  $('#rate').onchange = e => { S.rate = +e.target.value; save(); A.play('takbir'); };
+  $('#rate').onchange = e => { S.rate = +e.target.value; save(); A.play('takbir2'); };
   $('#reset').onclick = () => { if (confirm('Yakin hapus semua bintang, lencana, kuis, dan checklist? Rekaman suara tidak ikut terhapus.')) { resetAll(); toast('Progres sudah dihapus.'); go(''); } };
-  const paintRecs = async () => {
-    const keys = new Set(await A.recKeys());
-    $$('.recrow').forEach(r => { const has = keys.has(r.dataset.id); r.classList.toggle('has', has); $('[data-recplay]', r).disabled = !has; $('[data-recdel]', r).disabled = !has; });
+  A.recKeys().then(keys => {
+    const has = new Set(keys), n = set => studioItems(set).filter(it => has.has(it.key)).length;
+    const el = $('#recsum');
+    if (el && keys.length) el.textContent = `Bacaan Arab ${n('bacaan')}/${studioItems('bacaan').length} · Soal kuis ${n('kuis')}/${studioItems('kuis').length} sudah direkam`;
+  });
+};
+
+// =====================================================================
+// STUDIO REKAM
+// =====================================================================
+ROUTES.studio = async (set = 'bacaan') => {
+  if (!gateOk) return go('ortu');
+  if (set !== 'kuis') set = 'bacaan';
+  const items = studioItems(set);
+  const keys = new Set(await A.recKeys());
+  let i = Math.max(0, items.findIndex(it => !keys.has(it.key)));
+  let mic = null, rec = null, t0 = 0, raf = 0, alive = true, busy = false;
+  view.innerHTML = banner('🎙️', 'Studio Rekam', 'Rekam suaramu, nanti semua anak mendengar suaramu', '#7C6BC4') +
+    tabs('stab', [['bacaan', 'Bacaan Arab'], ['kuis', 'Soal Kuis']], set) + `
+    <div class="sprog"><div class="pbar"><i id="sbar"></i></div><span id="scount"></span></div>
+    <div class="stage studio" id="scard"></div>
+    <div class="sctl">
+      <button class="round" id="sprev" aria-label="Naskah sebelumnya">◀</button>
+      <button class="recbig" id="srec" aria-label="Mulai merekam">●</button>
+      <button class="round go" id="snext" aria-label="Naskah berikutnya">▶</button>
+    </div>
+    <div class="meter" aria-hidden="true"><i id="slevel"></i></div>
+    <p class="hint center" id="shint"></p>
+    <div class="row center">
+      <button class="pill" style="background:#2A8C80" id="splay">▶ Dengar</button>
+      <button class="pill" style="background:#6B6878" id="sdel">🗑 Hapus</button>
+    </div>
+    <label class="switch"><input type="checkbox" id="stodo" checked> <span>Setelah merekam, langsung lompat ke naskah yang belum direkam</span></label>
+    <details class="more"><summary>Daftar semua naskah</summary><div class="slist" id="slist"></div></details>
+    <h3 class="sec">📦 Kirim rekaman</h3>
+    <div class="stage text">
+      <p id="sstat"></p>
+      <p class="hint">Rekaman tersimpan di perangkat ini dan langsung dipakai di sini. Supaya semua pengguna mendengar suaramu, ekspor jadi satu file .zip lalu kirimkan untuk dipasang ke aplikasi.</p>
+      <div class="row"><button class="pill" style="background:#E6573F" id="sexp">⬇️ Ekspor .zip</button><button class="pill" style="background:#3F93BA" id="sshare" hidden>📤 Bagikan</button></div>
+      <button class="bigbtn danger" id="sclear">Hapus semua rekaman di perangkat ini</button>
+    </div>
+    <p class="hint">Tips: rekam di ruangan yang tenang, jarak HP sekitar 20 cm dari mulut, baca pelan dan jelas.
+      Di laptop: <b>Spasi</b> = rekam/berhenti, <b>← →</b> = pindah naskah, <b>Enter</b> = dengar.</p>`;
+  wireTabs('stab', t => go('studio/' + t));
+
+  const IDLE_HINT = 'Tekan tombol merah, tunggu sebentar, lalu mulai membaca. Tekan lagi untuk berhenti.';
+  const paint = () => {
+    const it = items[i], has = keys.has(it.key), done = items.filter(x => keys.has(x.key)).length;
+    let body;
+    if (it.q) {
+      body = `<h3>Bacakan soal ini:</h3><p class="sq">${esc(it.q.q)}</p>` +
+        (it.q.ar ? `<p class="hint">lalu baca tulisan Arab ini:</p><p class="ar sar" lang="ar" dir="rtl">${it.q.ar}</p>` : '') +
+        `<p class="hint">Pilihan jawabannya tidak perlu dibaca.</p>`;
+    } else {
+      body = `<h3>${esc(it.t)}</h3><p class="ar sar" lang="ar" dir="rtl">${it.r.ar}</p><p class="lat">${esc(it.r.lat)}</p>` +
+        (it.r.n > 1 ? `<p class="note">💡 Cukup baca 1 kali. Aplikasi akan mengulang sendiri saat dibutuhkan.</p>` : '');
+    }
+    $('#scard').innerHTML = `<div class="shead"><small>${esc(it.group)} · ${i + 1} / ${items.length}</small>
+      <span class="badge ${has ? 'soft' : ''}">${has ? '✅ Sudah direkam' : '⚪ Belum'}</span></div>${body}`;
+    $('#sbar').style.width = `${done / items.length * 100}%`;
+    $('#scount').textContent = `${done}/${items.length}`;
+    $('#splay').disabled = $('#sdel').disabled = !has;
+    $('#sprev').disabled = i === 0; $('#snext').disabled = i === items.length - 1;
+    $('#slist').innerHTML = items.map((x, k) => `<button class="sli${k === i ? ' now' : ''}" data-si="${k}">${keys.has(x.key) ? '✅' : '⚪'} ${esc(x.t)}</button>`).join('');
+    paintStat();
   };
-  view.onclick = async e => {
-    const b = e.target.closest('[data-rec],[data-recplay],[data-recdel]'); if (!b) return;
-    if (b.dataset.rec) {
-      const id = b.dataset.rec;
-      if (rec[id]) { const blob = await rec[id].stop(); delete rec[id]; b.textContent = '●'; b.classList.remove('live'); await A.saveRec(id, blob); paintRecs(); toast('Rekaman tersimpan ✅'); return; }
-      if (Object.keys(rec).length) return toast('Selesaikan rekaman yang sedang berjalan dulu.');
-      try { A.stop(); rec[id] = await A.startRecording(); b.textContent = '■'; b.classList.add('live'); toast('Merekam… tekan ■ untuk berhenti'); }
-      catch { toast('Mikrofon tidak bisa dipakai. Cek izin mikrofon di browser.'); }
-    } else if (b.dataset.recplay) {
-      A.play(b.dataset.recplay);
-    } else if (b.dataset.recdel && confirm('Hapus rekaman ini?')) { await A.delRec(b.dataset.recdel); paintRecs(); }
+  const paintRec = () => {
+    const b = $('#srec');
+    b.classList.toggle('live', !!rec);
+    b.textContent = rec ? '■' : '●';
+    b.setAttribute('aria-label', rec ? 'Berhenti merekam' : 'Mulai merekam');
+    if (!rec) { $('#slevel').style.width = '0'; $('#shint').textContent = IDLE_HINT; }
   };
-  onLeave(() => { view.onclick = null; Object.values(rec).forEach(r => r.stop()); });
-  paintRecs();
+  const paintStat = async () => {
+    const all = await A.recKeys();
+    const has = new Set(all), cnt = s => studioItems(s).filter(it => has.has(it.key)).length;
+    $('#sstat').innerHTML = `<b>${all.length}</b> rekaman di perangkat ini · Bacaan Arab ${cnt('bacaan')}/${studioItems('bacaan').length} · Soal kuis ${cnt('kuis')}/${studioItems('kuis').length}`;
+  };
+  const move = k => {
+    if (rec || busy) return;
+    A.stop(); i = Math.max(0, Math.min(items.length - 1, k)); paint();
+  };
+  const nextTodo = () => {
+    for (let k = 1; k <= items.length; k++) { const j = (i + k) % items.length; if (!keys.has(items[j].key)) return j; }
+    return -1;
+  };
+  const toggle = async () => {
+    if (busy) return;
+    if (rec) {
+      busy = true;
+      const r = rec, secs = (performance.now() - t0) / 1000; rec = null; cancelAnimationFrame(raf);
+      const blob = await r.stop();
+      paintRec();
+      if (secs < 0.6 || blob.size < 1500) { busy = false; return toast('Rekamannya terlalu pendek, coba lagi ya.'); }
+      const key = items[i].key;
+      await A.saveRec(key, blob); keys.add(key);
+      paint();
+      await A.play(key);
+      busy = false;
+      if (!alive) return;
+      const j = $('#stodo').checked ? nextTodo() : -1;
+      if (j >= 0) { i = j; paint(); }
+      else if (keys.size && items.every(x => keys.has(x.key))) { confetti(); toast(`<span class="tbig">🎉</span><span><b>Semua naskah sudah direkam!</b><br>Sekarang ekspor .zip-nya.</span>`, 4000); }
+      return;
+    }
+    try { A.stop(); mic ||= await A.openMic(); }
+    catch { return toast('Mikrofon tidak bisa dipakai. Izinkan akses mikrofon di browser, ya.'); }
+    rec = mic.record(); t0 = performance.now(); paintRec();
+    const loop = () => {
+      if (!rec) return;
+      $('#slevel').style.width = Math.min(100, mic.level() * 180) + '%';
+      $('#shint').textContent = `🔴 Merekam… ${((performance.now() - t0) / 1000).toFixed(1)} detik. Tekan ■ untuk berhenti.`;
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+  };
+  $('#srec').onclick = toggle;
+  $('#sprev').onclick = () => move(i - 1);
+  $('#snext').onclick = () => move(i + 1);
+  $('#splay').onclick = () => { if (!rec) A.play(items[i].key); };
+  $('#sdel').onclick = async () => {
+    if (rec || !confirm('Hapus rekaman naskah ini?')) return;
+    await A.delRec(items[i].key); keys.delete(items[i].key); paint();
+  };
+  $('#slist').onclick = e => { const b = e.target.closest('[data-si]'); if (b) move(+b.dataset.si); };
+  $('#sclear').onclick = async () => {
+    if (rec || !confirm('Hapus SEMUA rekaman di perangkat ini? Ekspor dulu kalau belum.')) return;
+    await A.clearRecs(); keys.clear(); paint(); toast('Semua rekaman dihapus.');
+  };
+  // ekspor
+  const buildZip = async () => {
+    const recs = await A.allRecs();
+    if (!recs.length) { toast('Belum ada rekaman untuk diekspor.'); return null; }
+    const map = {}, files = [];
+    for (const {key, blob} of recs) {
+      const name = `${key}.${A.extOf(blob.type)}`;
+      map[key] = name;
+      files.push({name, data: new Uint8Array(await blob.arrayBuffer())});
+    }
+    files.push({name: 'daftar.json', data: new TextEncoder().encode(JSON.stringify(map, null, 1))});
+    return new File([makeZip(files)], `rekaman-ruma-shalat-${dayKey()}.zip`, {type: 'application/zip'});
+  };
+  $('#sexp').onclick = async () => {
+    const f = await buildZip(); if (!f) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(f); a.download = f.name;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast(`<span class="tbig">📦</span><span><b>${f.name}</b><br>sudah diunduh.</span>`, 4000);
+  };
+  if (navigator.canShare?.({files: [new File([''], 'x.zip', {type: 'application/zip'})]})) {
+    $('#sshare').hidden = false;
+    $('#sshare').onclick = async () => {
+      const f = await buildZip(); if (!f) return;
+      try { await navigator.share({files: [f], title: 'Rekaman RuMa Shalat'}); } catch {}
+    };
+  }
+  // pintasan keyboard (laptop)
+  const onKey = e => {
+    if (e.target.closest('input,select,textarea')) return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    else if (e.key === 'ArrowRight') move(i + 1);
+    else if (e.key === 'ArrowLeft') move(i - 1);
+    else if (e.key === 'Enter' && keys.has(items[i].key)) { e.preventDefault(); A.play(items[i].key); }
+  };
+  addEventListener('keydown', onKey);
+  onLeave(() => {
+    alive = false; removeEventListener('keydown', onKey); cancelAnimationFrame(raf);
+    rec?.stop(); rec = null; mic?.close();
+  });
+  paint(); paintRec();
 };
 
 // ---------- mulai ----------

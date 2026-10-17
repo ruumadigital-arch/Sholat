@@ -35,24 +35,53 @@ export const getRec = id => tx('readonly', s => s.get(id)).catch(() => null);
 export const saveRec = (id, blob) => tx('readwrite', s => s.put(blob, id));
 export const delRec = id => tx('readwrite', s => s.delete(id));
 export const recKeys = () => tx('readonly', s => s.getAllKeys()).catch(() => []);
+export async function allRecs() {
+  const keys = await recKeys(), vals = await tx('readonly', s => s.getAll()).catch(() => []);
+  return keys.map((key, i) => ({key, blob: vals[i]}));
+}
+export const clearRecs = () => tx('readwrite', s => s.clear());
 
-export async function startRecording() {
-  const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-  const mr = new MediaRecorder(stream);
-  const chunks = [];
-  mr.ondataavailable = e => e.data.size && chunks.push(e.data);
-  mr.start();
+// Format rekaman: utamakan AAC (.m4a) karena bisa diputar di semua HP, termasuk iPhone.
+const MIMES = ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+export const extOf = type => /mp4|m4a|aac/.test(type) ? 'm4a' : /ogg/.test(type) ? 'ogg' : /mpeg|mp3/.test(type) ? 'mp3' : /wav/.test(type) ? 'wav' : 'webm';
+
+// Mikrofon dibuka sekali untuk satu sesi rekam; level() untuk indikator suara.
+export async function openMic() {
+  const stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true, autoGainControl: true}});
+  let ctx = null, an = null, buf = null;
+  try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    an = ctx.createAnalyser(); an.fftSize = 512; buf = new Uint8Array(an.fftSize);
+    ctx.createMediaStreamSource(stream).connect(an);
+  } catch {}
   return {
-    stop: () => new Promise(res => {
-      mr.onstop = () => { stream.getTracks().forEach(t => t.stop()); res(new Blob(chunks, {type: mr.mimeType || 'audio/webm'})); };
-      mr.stop();
-    }),
+    level() {
+      if (!an) return 0;
+      an.getByteTimeDomainData(buf);
+      let m = 0; for (const v of buf) m = Math.max(m, Math.abs(v - 128));
+      return m / 128;
+    },
+    record() {
+      const type = MIMES.find(t => window.MediaRecorder?.isTypeSupported?.(t));
+      const mr = new MediaRecorder(stream, type ? {mimeType: type} : undefined);
+      const chunks = [];
+      mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+      mr.start();
+      return {
+        stop: () => new Promise(res => {
+          mr.onstop = () => res(new Blob(chunks, {type: (mr.mimeType || type || 'audio/webm').split(';')[0]}));
+          mr.stop();
+        }),
+      };
+    },
+    close() { stream.getTracks().forEach(t => t.stop()); ctx?.close().catch(() => {}); },
   };
 }
 
 // ---------- file audio buatan sendiri ----------
 let files = {};
 fetch('audio/daftar.json').then(r => r.ok ? r.json() : {}).then(j => { files = j || {}; }).catch(() => {});
+export const fileVoices = () => files;
 
 // ---------- text-to-speech ----------
 let voices = [];
@@ -110,7 +139,7 @@ function playUrl(url, sig) {
 
 // Urutan potongan suara untuk satu bacaan.
 // bacaan yang lafaznya sama memakai rekaman yang sama
-const ALIAS = {takbir2: 'takbir', takbir33: 'takbir', d_marah: 'taawudz', d_bersin: 'tahmid'};
+export const ALIAS = {takbir2: 'takbir', takbir33: 'takbir', d_marah: 'taawudz', d_bersin: 'tahmid'};
 
 async function sequence(key) {
   const rec = await getRec(key) || (ALIAS[key] && await getRec(ALIAS[key]));
@@ -127,7 +156,8 @@ async function sequence(key) {
   return r ? [{ar: r.ar, lat: r.lat}] : [];
 }
 
-// opts: repeat (n kali), onAyah(i) dipanggil saat ayat ke-i mulai, lang 'arti' untuk membaca arti
+// opts: repeat (n kali), onAyah(i) dipanggil saat ayat ke-i mulai, arti: membaca arti,
+// fallback: teks bahasa Indonesia yang dibacakan suara HP bila belum ada rekaman (mis. soal kuis)
 export async function play(key, opts = {}) {
   stop();
   if (S.muted) { S.muted = false; save(); document.dispatchEvent(new Event('ruma-mute')); }
@@ -138,17 +168,21 @@ export async function play(key, opts = {}) {
       const r = R[key];
       if (r) await speak(r.arti, 'id', sig);
     } else {
-      const seq = await sequence(key);
+      let seq = (await sequence(key)).map(it => ({...it, say: opts.fallback}));
+      if (!seq.length && opts.fallback) seq = [{say: opts.fallback}];
       for (let n = 0; n < (opts.repeat || 1) && !sig.stopped; n++) {
         for (const it of seq) {
           if (sig.stopped) break;
           if (it.i != null) opts.onAyah?.(it.i);
           let ok = false;
-          if (it.blob) ok = await playUrl(URL.createObjectURL(it.blob), sig);
-          else if (it.url) ok = await playUrl(it.url, sig);
-          if (!ok && !sig.stopped && it.ar) {
-            if (hasArabicVoice()) await speak(it.ar, 'ar', sig);
-            else await speak(it.lat, 'id', sig);
+          if (it.blob) {
+            const url = URL.createObjectURL(it.blob);
+            ok = await playUrl(url, sig);
+            URL.revokeObjectURL(url);
+          } else if (it.url) ok = await playUrl(it.url, sig);
+          if (!ok && !sig.stopped) {
+            if (it.ar) await speak(hasArabicVoice() ? it.ar : it.lat, hasArabicVoice() ? 'ar' : 'id', sig);
+            else if (it.say) await speak(it.say, 'id', sig);
           }
         }
       }

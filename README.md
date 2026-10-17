@@ -30,14 +30,21 @@ Urutan suara yang diputar untuk setiap bacaan:
 3. **Murattal Al-Qur'an** dari EveryAyah, untuk Al-Fatihah, surat pendek, dan Ayat Kursi.
 4. **Suara bawaan HP** (text-to-speech). Kalau HP tidak punya suara bahasa Arab, yang dibacakan tulisan latinnya.
 
-### Menambah file audio sendiri (berlaku untuk semua pengguna)
+### Merekam suara sendiri lewat Studio Rekam (berlaku untuk semua pengguna)
 
-1. Simpan file suara di `public/audio/`, misalnya `public/audio/takbir.mp3`.
-2. Daftarkan di `public/audio/daftar.json` dengan format `{"id-bacaan": "nama-file"}`, contohnya:
-   ```json
-   {"takbir": "takbir.mp3", "ruku": "ruku.mp3", "d_makan": "doa-makan.mp3"}
+1. Buka aplikasi, masuk **Untuk Orang Tua → Studio Rekam**.
+2. Rekam naskahnya satu per satu: **63 bacaan Arab** (bacaan shalat, niat, wudhu, dzikir, doa) dan **96 soal kuis**. Di laptop: Spasi = rekam/berhenti, ← → = pindah naskah, Enter = dengar.
+3. Tekan **Ekspor .zip**, lalu pasang hasilnya ke aplikasi:
    ```
-3. Daftar id bacaan ada di `public/js/content.js` (contoh: `takbir`, `iftitah`, `ruku`, `niat_subuh`, `d_tidur`).
+   powershell -ExecutionPolicy Bypass -File tools/pasang-rekaman.ps1 "C:\Users\ASUS\Downloads\rekaman-ruma-shalat-2026-10-17.zip"
+   ```
+   Skrip ini menyalin file ke `public/audio/`, memperbarui `public/audio/daftar.json`, dan menaikkan `VERSION` di `public/sw.js`. Setelah itu deploy ulang.
+
+Rekaman bisa dicicil. Ekspor dan pasang berkali-kali tidak masalah, karena rekaman yang baru akan menggantikan yang lama.
+
+### Menambah file audio secara manual
+
+Simpan file di `public/audio/` lalu daftarkan di `public/audio/daftar.json` dengan format `{"id-bacaan": "nama-file"}`, misalnya `{"takbir": "takbir.mp3"}`. Daftar id bacaan ada di `public/js/content.js`.
 
 ## Mencoba di komputer
 

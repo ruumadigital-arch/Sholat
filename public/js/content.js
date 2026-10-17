@@ -370,3 +370,10 @@ export const BADGES = [
   {k:'bintang150', ic:'🌠', t:'150 Bintang', d:'Mengumpulkan 150 bintang'},
   {k:'bintang300', ic:'👑', t:'300 Bintang', d:'Mengumpulkan 300 bintang'},
 ];
+
+// Id rekaman suara untuk soal kuis. Soal dengan kalimat yang sama memakai satu rekaman.
+export function quizKey(q) {
+  let h = 5381;
+  for (const ch of q.q + '|' + (q.ar || '')) h = (h * 33 + ch.codePointAt(0)) >>> 0;
+  return 'kuis_' + h.toString(36);
+}

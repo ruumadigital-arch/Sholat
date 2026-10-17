@@ -3,7 +3,7 @@
 param([int]$Port = 8080)
 $root = Join-Path (Split-Path $PSScriptRoot -Parent) 'public'
 $mime = @{'.html'='text/html; charset=utf-8'; '.js'='text/javascript; charset=utf-8'; '.css'='text/css; charset=utf-8'; '.json'='application/json; charset=utf-8';
-  '.webmanifest'='application/manifest+json'; '.png'='image/png'; '.svg'='image/svg+xml'; '.mp3'='audio/mpeg'; '.m4a'='audio/mp4'; '.txt'='text/plain; charset=utf-8'}
+  '.webmanifest'='application/manifest+json'; '.png'='image/png'; '.svg'='image/svg+xml'; '.mp3'='audio/mpeg'; '.m4a'='audio/mp4'; '.webm'='audio/webm'; '.ogg'='audio/ogg'; '.wav'='audio/wav'; '.zip'='application/zip'; '.txt'='text/plain; charset=utf-8'}
 $l = New-Object System.Net.HttpListener
 $l.Prefixes.Add("http://localhost:$Port/")
 $l.Start()
