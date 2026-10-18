@@ -377,3 +377,6 @@ export function quizKey(q) {
   for (const ch of q.q + '|' + (q.ar || '')) h = (h * 33 + ch.codePointAt(0)) >>> 0;
   return 'kuis_' + h.toString(36);
 }
+
+// Bacaan yang lafaznya sama memakai rekaman yang sama.
+export const ALIAS = {takbir2: 'takbir', takbir33: 'takbir', d_marah: 'taawudz', d_bersin: 'tahmid'};

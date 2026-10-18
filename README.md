@@ -30,6 +30,21 @@ Urutan suara yang diputar untuk setiap bacaan:
 3. **Murattal Al-Qur'an** dari EveryAyah, untuk Al-Fatihah, surat pendek, dan Ayat Kursi.
 4. **Suara bawaan HP** (text-to-speech). Kalau HP tidak punya suara bahasa Arab, yang dibacakan tulisan latinnya.
 
+### Merekam suara sendiri dengan perekam HP (berlaku untuk semua pengguna)
+
+Naskahnya bernomor: **A01–A63** untuk bacaan Arab dan **K01–K96** untuk soal kuis. Halaman naskah untuk dibuka di HP: https://claude.ai/artifact/HTkUeVBfikTSSN4i1B7zWy (salinannya ada di `tools/naskah-rekaman.html`).
+
+1. Rekam dengan aplikasi perekam bawaan HP dalam format M4A/MP3. Satu nomor satu file, berurutan. Nama file tidak perlu diganti, kecuali file rekaman ulang yang diberi nama sesuai nomornya (misalnya `A05.m4a`).
+2. Salin file ke laptop. Gunakan satu folder per bagian, misalnya `Downloads\rekaman-A`.
+3. Cek pasangan nomor dan file dulu:
+   ```
+   powershell -ExecutionPolicy Bypass -File tools/pasang-rekaman-hp.ps1 -Folder "C:\Users\ASUS\Downloads\rekaman-A" -Bagian A -Coba
+   ```
+   Untuk sesi lanjutan, tambahkan `-Mulai 31` (nomor awal sesi itu).
+4. Kalau pasangannya sudah benar, jalankan lagi tanpa `-Coba`, lalu deploy ulang.
+
+Pemetaan nomor ke id suara ada di `tools/naskah.json` dan harus sama dengan `public/js/naskah.js`.
+
 ### Merekam suara sendiri lewat Studio Rekam (berlaku untuk semua pengguna)
 
 1. Buka aplikasi, masuk **Untuk Orang Tua → Studio Rekam**.

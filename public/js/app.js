@@ -1,6 +1,7 @@
 import {R, DOA, WUDHU, FARDHU_WUDHU, SUNNAH_WUDHU, PEMBATAL_WUDHU, TAYAMUM, GERAKAN, BACAAN, WAJIB, SUNNAH,
   SYARAT_WAJIB, SYARAT_SAH, RUKUN, TUMAKNINAH, SUNNAH_ABAD, SUNNAH_HAIAT, PEMBATAL_SHALAT, SAHWI, DZIKIR, QUIZ, BADGES, quizKey} from './content.js';
 import {makeZip} from './zip.js';
+import {naskahItems as studioItems} from './naskah.js';
 import {SURAH, AYAT_KURSI} from './quran.js';
 import {poseSVG, animateTo} from './figure.js';
 import {computeTimes, qibla, CITIES, ORDER, LABEL, WAJIB_KEYS} from './praytimes.js';
@@ -790,25 +791,6 @@ ROUTES.bintang = () => {
 // =====================================================================
 // ORANG TUA
 // =====================================================================
-// naskah rekaman (bacaan yang lafaznya sama cukup direkam sekali, lihat A.ALIAS)
-const REC_GROUPS = [
-  ['Bacaan shalat', ['takbir', 'iftitah', 'taawudz', 'aamiin', 'ruku', 'itidal1', 'itidal2', 'qunut', 'sujud', 'duduk', 'tasyahud', 'shalawat_awal', 'shalawat_ibrahim', 'doa_akhir', 'salam', 'sujud_sahwi', 'takbir_id']],
-  ['Niat shalat', Object.keys(R).filter(k => k.startsWith('niat_') && !['niat_wudhu', 'niat_tayamum'].includes(k))],
-  ['Wudhu & tayamum', ['basmalah', 'niat_wudhu', 'doa_wudhu', 'niat_tayamum']],
-  ['Dzikir', ['istighfar', 'antassalam', 'tasbih', 'tahmid', 'tahlil']],
-  ['Doa harian', DOA.map(d => d.id).filter(id => !(id in A.ALIAS))],
-];
-function studioItems(set) {
-  if (set === 'bacaan') return REC_GROUPS.flatMap(([g, ids]) => ids.map(key => ({key, group: g, t: R[key].t, r: R[key]})));
-  const seen = new Set(), out = [];
-  for (const q of QUIZ) {
-    const key = quizKey(q);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({key, group: 'Kuis ' + LV[q.lv][0], t: q.q, q});
-  }
-  return out;
-}
 let gateOk = false;
 
 ROUTES.ortu = unlocked => {
@@ -909,7 +891,7 @@ ROUTES.studio = async (set = 'bacaan') => {
       body = `<h3>${esc(it.t)}</h3><p class="ar sar" lang="ar" dir="rtl">${it.r.ar}</p><p class="lat">${esc(it.r.lat)}</p>` +
         (it.r.n > 1 ? `<p class="note">💡 Cukup baca 1 kali. Aplikasi akan mengulang sendiri saat dibutuhkan.</p>` : '');
     }
-    $('#scard').innerHTML = `<div class="shead"><small>${esc(it.group)} · ${i + 1} / ${items.length}</small>
+    $('#scard').innerHTML = `<div class="shead"><small><b class="sno">${it.no}</b> ${esc(it.group)} · ${i + 1} / ${items.length}</small>
       <span class="badge ${has ? 'soft' : ''}">${has ? '✅ Sudah direkam' : '⚪ Belum'}</span></div>${body}`;
     $('#sbar').style.width = `${done / items.length * 100}%`;
     $('#scount').textContent = `${done}/${items.length}`;

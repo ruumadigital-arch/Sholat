@@ -1,6 +1,6 @@
 // Suara: (1) rekaman orang tua di perangkat, (2) file audio/<id>.mp3 yang terdaftar di audio/daftar.json,
 // (3) murattal Al-Qur'an dari EveryAyah, (4) suara bawaan HP (text-to-speech) sebagai cadangan.
-import {R} from './content.js';
+import {R, ALIAS} from './content.js';
 import {SURAH, AYAT_KURSI} from './quran.js';
 import {S, save} from './store.js';
 
@@ -138,9 +138,6 @@ function playUrl(url, sig) {
 }
 
 // Urutan potongan suara untuk satu bacaan.
-// bacaan yang lafaznya sama memakai rekaman yang sama
-export const ALIAS = {takbir2: 'takbir', takbir33: 'takbir', d_marah: 'taawudz', d_bersin: 'tahmid'};
-
 async function sequence(key) {
   const rec = await getRec(key) || (ALIAS[key] && await getRec(ALIAS[key]));
   if (rec) return [{blob: rec}];

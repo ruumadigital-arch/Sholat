@@ -389,3 +389,4 @@ details.pr>summary::-webkit-details-marker{display:none}
 .slist{display:grid;gap:4px;padding:0 10px 12px;max-height:340px;overflow-y:auto}
 .sli{text-align:left;padding:8px 10px;border-radius:12px;font-size:14.5px;line-height:1.35}
 .sli.now{background:#E5E0F6}
+.sno{font-family:Fredoka,sans-serif;color:var(--purple);font-size:15px;margin-right:4px}
