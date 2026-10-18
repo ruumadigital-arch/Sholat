@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Olah Suara RuMa Shalat</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=Nunito:wght@600;700;800&display=swap">
+<style>
+:root{--bg:#FFF6E6;--paper:#fff;--ink:#2A2833;--muted:#6B6878;--line:#EADFC8;--teal:#2A8C80;--warn:#B8641C;--bad:#B23E2A;--good:#23703B}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:700 15px/1.45 Nunito,system-ui,sans-serif;padding:20px max(16px,env(safe-area-inset-left))}
+h1{font:600 28px Fredoka,sans-serif;margin:0 0 6px}
+.lead{color:var(--muted);margin:0 0 14px;max-width:70ch}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+button{font:inherit;border:0;border-radius:12px;padding:10px 16px;background:var(--teal);color:#fff;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+#status{color:var(--muted)}
+.wrap{overflow-x:auto;background:var(--paper);border:2px solid var(--line);border-radius:16px}
+table{border-collapse:collapse;width:100%;min-width:980px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+td.no{font:600 17px Fredoka,sans-serif;color:#7C6BC4}
+.ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+audio{height:32px;width:190px}
+small{color:var(--muted);display:block;font-weight:600}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+</head>
+<body>
+<h1>Olah Suara</h1>
+<p class="lead">Membersihkan noise, memotong jeda awal/akhir, mempertegas suara, dan menyamakan kekerasan suara semua rekaman ke -16 LUFS, lalu menyimpannya sebagai MP3. File asli tidak diubah.</p>
+<div class="bar"><button id="go">Olah semua</button><span id="status">Memuat daftar file…</span></div>
+<div class="wrap"><table>
+  <thead><tr><th>No</th><th>Naskah</th><th>Durasi</th><th>Noise vs suara</th><th>Loudness</th><th>Puncak</th><th>Catatan</th><th>Asli</th><th>Hasil</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table></div>
+<script type="module">
+import {SR, SETELAN, decode, process, mp3} from './olah.js';
+const {naskahItems} = await import('/app/js/naskah.js');
+const NASKAH = Object.fromEntries([...naskahItems('bacaan'), ...naskahItems('kuis')].map(it => [it.no, it]));
+const $ = s => document.querySelector(s);
+const files = await (await fetch('/daftar')).json();
+const rows = $('#rows'), results = [];
+window.HASIL = results;
+const noOf = name => (name.match(/^([AK])\s*0*(\d{1,3})/i) || []).slice(1);
+rows.innerHTML = files.map((f, i) => {
+  const [b, n] = noOf(f.name), no = b ? b.toUpperCase() + String(+n).padStart(2, '0') : '?';
+  const it = NASKAH[no];
+  return `<tr id="r${i}"><td class="no">${no}</td><td>${it ? it.t : '<span class="bad">nomor tidak dikenal</span>'}<small>${f.name}</small></td>
+    <td colspan="5" class="st">menunggu</td><td><audio controls preload="none" src="/mentah/${encodeURIComponent(f.name)}"></audio></td><td class="out"></td></tr>`;
+}).join('');
+$('#status').textContent = `${files.length} file siap diolah.`;
+
+// perkiraan durasi wajar dari panjang teks latin (untuk mendeteksi rekaman yang tertukar)
+function expected(it) {
+  if (!it) return null;
+  const text = it.r ? it.r.lat : it.t;
+  return 0.5 + text.length / (it.r ? 11 : 13);
+}
+const f1 = v => v.toFixed(1);
+
+async function one(f, i) {
+  const tr = $('#r' + i), [b, n] = noOf(f.name), no = b ? b.toUpperCase() + String(+n).padStart(2, '0') : null;
+  tr.querySelector('.st').textContent = 'mengolah…';
+  const raw = await decode(await (await fetch('/mentah/' + encodeURIComponent(f.name))).arrayBuffer());
+  const r = process(raw);
+  const blob = mp3(r.x, SETELAN.kbps);
+  const name = (no || f.name.replace(/\..*$/, '')) + '.mp3';
+  await fetch('/hasil/' + name, {method: 'POST', body: blob});
+  const exp = expected(NASKAH[no]), ratio = exp ? r.after.dur / exp : 1;
+  const notes = [];
+  if (r.clip > 20) notes.push(`<span class="warn">rekaman asli sempat pecah (${r.clip} titik)</span>`);
+  // durasi janggal dicek setelah semua selesai, dibandingkan dengan tempo bacaan rata-rata
+  if (!notes.length) notes.push('<span class="ok">✓ beres</span>');
+  tr.innerHTML = tr.innerHTML.replace(/<td colspan="5" class="st">.*?<\/td>/,
+    `<td>${f1(r.before.dur)} → <b>${f1(r.after.dur)} s</b><small>potong ${f1(r.cutStart)} + ${f1(r.cutEnd)} s</small></td>
+     <td>${f1(r.before.noise)} → <b>${f1(r.after.noise)} dB</b><small>makin kecil makin bersih</small></td>
+     <td>${f1(r.before.lufs)} → <b>${f1(r.after.lufs)} LUFS</b></td>
+     <td>${f1(r.after.peak)} dB</td><td>${notes.join('<br>')}</td>`);
+  tr.querySelector('.out').innerHTML = `<audio controls preload="none" src="${URL.createObjectURL(blob)}"></audio><small>${name} · ${Math.round(blob.size / 1024)} KB</small>`;
+  results.push({no, file: f.name, out: name, kb: Math.round(blob.size / 1024), exp: exp && +f1(exp), ratio: +ratio.toFixed(2), clip: r.clip,
+    before: Object.fromEntries(Object.entries(r.before).map(([k, v]) => [k, +f1(v)])), after: Object.fromEntries(Object.entries(r.after).map(([k, v]) => [k, +f1(v)]))});
+}
+
+$('#go').onclick = async () => {
+  $('#go').disabled = true; results.length = 0;
+  const t0 = performance.now();
+  for (let i = 0; i < files.length; i++) {
+    $('#status').textContent = `Mengolah ${i + 1} dari ${files.length}…`;
+    try { await one(files[i], i); }
+    catch (e) { $('#r' + i).querySelector('.st, td:nth-child(7)')?.insertAdjacentHTML('beforeend', ` <span class="bad">gagal: ${e.message}</span>`); results.push({file: files[i].name, error: e.message}); }
+    await new Promise(r => setTimeout(r));
+  }
+  // tandai durasi yang janggal dibanding tempo bacaan rata-rata (bisa jadi file tertukar atau terpotong)
+  const ok = results.filter(r => !r.error && r.exp), med = ok.map(r => r.ratio).sort((a, b) => a - b)[Math.floor(ok.length / 2)] || 1;
+  for (const r of ok) {
+    r.odd = r.ratio < med * 0.5 ? 'pendek' : r.ratio > med * 1.9 ? 'panjang' : '';
+    if (!r.odd) continue;
+    const cell = $('#r' + files.findIndex(f => f.name === r.file)).children[6];
+    cell.innerHTML = `<span class="bad">jauh lebih ${r.odd} dari tempo bacaan lainnya, dengarkan dulu</span>`;
+  }
+  $('#status').textContent = `Selesai: ${results.filter(r => !r.error).length} file dalam ${Math.round((performance.now() - t0) / 1000)} detik.`;
+  $('#go').disabled = false; window.SELESAI = true;
+};
+</script>
+</body>
+</html>

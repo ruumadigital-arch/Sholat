@@ -122,6 +122,7 @@ export function stop() {
   if (!cur) return;
   cur.stopped = true;
   cur.el?.pause();
+  cur.release?.();
   try { speechSynthesis.cancel(); } catch {}
   cur = null; notify();
 }
@@ -131,6 +132,7 @@ function playUrl(url, sig) {
   return new Promise(res => {
     const a = new Audio(url);
     sig.el = a;
+    sig.release = () => res(false);
     a.onended = () => res(true);
     a.onerror = () => res(false);
     a.play().catch(() => res(false));

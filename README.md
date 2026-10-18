@@ -45,6 +45,23 @@ Naskahnya bernomor: **A01–A63** untuk bacaan Arab dan **K01–K96** untuk soal
 
 Pemetaan nomor ke id suara ada di `tools/naskah.json` dan harus sama dengan `public/js/naskah.js`.
 
+**Olah dulu sebelum dipasang.** Alat `tools/olah-suara` membersihkan rekaman secara otomatis:
+- buang dengung di bawah 80 Hz,
+- kurangi noise dan desis,
+- redam napas di sela kata,
+- potong jeda kosong di awal dan akhir,
+- pertegas suara,
+- samakan kekerasan suara ke -16 LUFS dengan puncak maksimal -1 dB,
+- simpan sebagai MP3 96 kbps.
+
+File asli tidak diubah. Cara pakainya:
+```
+powershell -ExecutionPolicy Bypass -File tools/olah-suara/server.ps1 -Masuk "C:\Users\ASUS\Downloads\Ruma Shalat\Rekaman 2" -Keluar "C:\Users\ASUS\Downloads\Ruma Shalat\Rekaman 2 olahan"
+```
+1. Buka http://localhost:8090 lalu tekan **Olah semua**.
+2. Bandingkan suara asli dan hasilnya di tabel. Rekaman yang durasinya janggal akan ditandai.
+3. Pasang folder hasil dengan `pasang-rekaman-hp.ps1` seperti di atas. File hasilnya sudah bernama A01.mp3, K01.mp3, dan seterusnya.
+
 ### Merekam suara sendiri lewat Studio Rekam (berlaku untuk semua pengguna)
 
 1. Buka aplikasi, masuk **Untuk Orang Tua → Studio Rekam**.
