@@ -1,4 +1,4 @@
-﻿# RuMa Shalat — Panduan Shalat Anak
+# RuMa Shalat — Panduan Shalat Anak
 
 Aplikasi web (PWA) panduan shalat untuk anak usia 4–12 tahun dari **RuMa Digital**. Bisa dibuka dari browser dan dipasang di HP lewat menu "Tambahkan ke Layar Utama". Setelah dibuka sekali, aplikasi tetap bisa dipakai tanpa internet. Pengecualiannya murattal Al-Qur'an, yang tetap butuh koneksi.
 
