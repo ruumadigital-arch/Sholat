@@ -1,8 +1,8 @@
 // Service worker: aplikasi tetap bisa dibuka tanpa internet.
 // Naikkan VERSION setiap kali file aplikasi diubah agar HP mengambil versi terbaru.
-const VERSION = 'ruma-shalat-v9';
+const VERSION = 'ruma-shalat-v10';
 const SHELL = [
-  './', 'index.html', 'css/app.css', 'manifest.webmanifest',
+  './', 'css/app.css', 'manifest.webmanifest',
   'js/app.js', 'js/content.js', 'js/quran.js', 'js/figure.js', 'js/praytimes.js', 'js/store.js', 'js/audio.js', 'js/zip.js', 'js/naskah.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'audio/daftar.json',
 ];
@@ -55,6 +55,6 @@ self.addEventListener('fetch', e => {
     const hit = await c.match(req, {ignoreSearch: true});
     const net = fetch(req).then(res => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => null);
     if (hit) { e.waitUntil(net); return hit; }
-    return (await net) || (req.mode === 'navigate' ? c.match('index.html') : Response.error());
+    return (await net) || (req.mode === 'navigate' ? c.match('./') : Response.error());
   }));
 });
