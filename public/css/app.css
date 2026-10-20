@@ -346,9 +346,11 @@ details.pr>summary::-webkit-details-marker{display:none}
 .rbtn.live{background:var(--coral);color:#fff;animation:pulse 1s infinite}
 
 /* toast & animasi */
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:12px;
-  background:var(--ink);color:#fff;border-radius:20px;padding:12px 18px;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:calc(100vw - 32px);animation:up .35s;line-height:1.35}
-.toast.out{opacity:0;transform:translate(-50%,20px);transition:.35s}
+.toasts{position:fixed;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom));z-index:9;display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding-inline:16px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:12px;background:var(--ink);color:#fff;border-radius:20px;padding:12px 18px;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  max-width:min(520px,100%);animation:up .35s;line-height:1.35;pointer-events:auto}
+.toast.out{opacity:0;transform:translateY(20px);transition:.35s}
 .tbig{font-size:32px}
 .confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:8}
 .confetti span{position:absolute;top:-20px;width:11px;height:15px;border-radius:3px;animation:fall 1.3s ease-in forwards}
@@ -356,7 +358,7 @@ details.pr>summary::-webkit-details-marker{display:none}
 @keyframes pop{40%{transform:scale(1.07)}}
 @keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
 @keyframes pulse{50%{transform:scale(1.08)}}
-@keyframes up{from{opacity:0;transform:translate(-50%,20px)}}
+@keyframes up{from{opacity:0;transform:translateY(20px)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:380px){
   body{padding-inline:12px}
@@ -390,3 +392,15 @@ details.pr>summary::-webkit-details-marker{display:none}
 .sli{text-align:left;padding:8px 10px;border-radius:12px;font-size:14.5px;line-height:1.35}
 .sli.now{background:#E5E0F6}
 .sno{font-family:Fredoka,sans-serif;color:var(--purple);font-size:15px;margin-right:4px}
+
+/* pasang & bagikan, simpan offline, pesan error */
+.promo{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+.promo .modebtn{padding:12px 14px}
+.promo .modebtn b{font-size:17px}
+.promo .modebtn small{font-size:13px}
+@media (max-width:480px){.promo{grid-template-columns:1fr}}
+.offline{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.offline .pbar{min-width:140px}
+.oops{text-align:center}
+.oops .got{font-size:56px}
+.promo > :only-child{grid-column:1/-1}

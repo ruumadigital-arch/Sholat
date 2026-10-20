@@ -1,6 +1,6 @@
 // Service worker: aplikasi tetap bisa dibuka tanpa internet.
 // Naikkan VERSION setiap kali file aplikasi diubah agar HP mengambil versi terbaru.
-const VERSION = 'ruma-shalat-v5';
+const VERSION = 'ruma-shalat-v6';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest',
   'js/app.js', 'js/content.js', 'js/quran.js', 'js/figure.js', 'js/praytimes.js', 'js/store.js', 'js/audio.js', 'js/zip.js', 'js/naskah.js',
@@ -8,7 +8,8 @@ const SHELL = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' agar tidak terambil dari cache HTTP lama
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL.map(u => new Request(u, {cache: 'reload'})))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -35,6 +36,19 @@ self.addEventListener('fetch', e => {
   }
 
   if (url.origin !== location.origin) return; // murattal dll. langsung dari jaringan
+  if (req.headers.has('range')) return;       // permintaan media sebagian: biarkan browser yang menangani
+
+  // suara rekaman: ambil dari cache bila sudah pernah diunduh
+  if (/\/audio\/[^/]+\.(mp3|m4a)$/.test(url.pathname)) {
+    e.respondWith(caches.open(VERSION).then(async c => {
+      const hit = await c.match(req);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res.ok) c.put(req, res.clone());
+      return res;
+    }));
+    return;
+  }
 
   // file aplikasi: tampilkan dari cache, perbarui di belakang layar
   e.respondWith(caches.open(VERSION).then(async c => {

@@ -80,8 +80,23 @@ export async function openMic() {
 
 // ---------- file audio buatan sendiri ----------
 let files = {};
-fetch('audio/daftar.json').then(r => r.ok ? r.json() : {}).then(j => { files = j || {}; }).catch(() => {});
+const filesReady = fetch('audio/daftar.json').then(r => r.ok ? r.json() : {}).then(j => { files = j || {}; }).catch(() => {});
 export const fileVoices = () => files;
+
+// Simpan semua suara rekaman ke cache service worker agar bisa diputar tanpa internet.
+export async function saveOffline(progress) {
+  await filesReady;
+  if ('serviceWorker' in navigator && !navigator.serviceWorker.controller) {
+    await Promise.race([new Promise(r => navigator.serviceWorker.addEventListener('controllerchange', r, {once: true})), new Promise(r => setTimeout(r, 4000))]);
+  }
+  const list = [...new Set(Object.values(files))];
+  let ok = 0, failed = 0;
+  for (let i = 0; i < list.length; i++) {
+    try { const r = await fetch('audio/' + list[i]); if (r.ok) { await r.arrayBuffer(); ok++; } else failed++; } catch { failed++; }
+    progress?.(i + 1, list.length);
+  }
+  return {ok, failed};
+}
 
 // ---------- text-to-speech ----------
 let voices = [];
@@ -128,14 +143,37 @@ export function stop() {
 }
 export const playing = () => cur?.key || null;
 
+// Satu elemen audio dipakai bersama dan "dibuka" pada sentuhan pertama. Di iPhone, elemen yang
+// pernah diputar lewat sentuhan boleh diputar lagi walau ada jeda (misalnya menunggu file dimuat).
+const player = new Audio();
+player.preload = 'auto';
+let unlocked = false;
+const silence = (() => {
+  const n = 800, b = new ArrayBuffer(44 + n), v = new DataView(b);
+  const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([b], {type: 'audio/wav'}));
+})();
+function unlock() {
+  if (unlocked) return;
+  unlocked = true;
+  if (player.src) return;
+  player.src = silence;
+  player.play().catch(() => { unlocked = false; });
+}
+addEventListener('pointerdown', unlock, {capture: true});
+addEventListener('keydown', unlock, {capture: true});
+
 function playUrl(url, sig) {
   return new Promise(res => {
-    const a = new Audio(url);
-    sig.el = a;
+    sig.el = player;
     sig.release = () => res(false);
-    a.onended = () => res(true);
-    a.onerror = () => res(false);
-    a.play().catch(() => res(false));
+    player.onended = () => res(true);
+    player.onerror = () => res(false);
+    player.src = url;
+    player.play().catch(() => res(false));
   });
 }
 
@@ -143,8 +181,11 @@ function playUrl(url, sig) {
 async function sequence(key) {
   const rec = await getRec(key) || (ALIAS[key] && await getRec(ALIAS[key]));
   if (rec) return [{blob: rec}];
+  await filesReady;
   const file = files[key] || files[ALIAS[key]];
-  if (file) return [{url: 'audio/' + file}];
+  // file lokal diambil lewat fetch (bukan streaming) agar tersimpan di cache dan tetap bisa diputar offline;
+  // ar/lat disertakan sebagai cadangan suara HP bila file gagal dimuat
+  if (file) return [{local: 'audio/' + file, ar: R[key]?.ar, lat: R[key]?.lat}];
   if (key === 'q:kursi') return [{url: ayahUrl(2, 255), ar: AYAT_KURSI.ar, lat: AYAT_KURSI.lat, i: 0}];
   if (key.startsWith('q:')) {
     const k = key.slice(2), s = SURAH.find(x => x.key === k);
@@ -174,8 +215,11 @@ export async function play(key, opts = {}) {
           if (sig.stopped) break;
           if (it.i != null) opts.onAyah?.(it.i);
           let ok = false;
-          if (it.blob) {
-            const url = URL.createObjectURL(it.blob);
+          let blob = it.blob;
+          if (!blob && it.local) blob = await fetch(it.local).then(r => r.ok ? r.blob() : null).catch(() => null);
+          if (sig.stopped) break;
+          if (blob) {
+            const url = URL.createObjectURL(blob);
             ok = await playUrl(url, sig);
             URL.revokeObjectURL(url);
           } else if (it.url) ok = await playUrl(it.url, sig);

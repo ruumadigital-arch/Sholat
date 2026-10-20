@@ -19,7 +19,8 @@ Materi mengikuti **madzhab Syafi'i** seperti yang umum diajarkan di TPA dan seko
 | 🎯 Kuis | ±100 soal: Mudah (4–6 th), Sedang (7–9 th), Sulit (10–12 th), Tantangan Kilat 60 detik. Ada soal bergambar, soal teks Arab, dan soal menyusun urutan |
 | ⏰ Jadwal & Checklist | Jadwal shalat 49 kota (kriteria Kemenag) atau lokasi GPS, hitung mundur, checklist 5 waktu, riwayat 7 hari, arah kiblat |
 | ⭐ Bintangku | Bintang & 16 lencana |
-| 👨‍👩‍👧 Orang Tua | Nama anak, karakter, pilihan qari, **rekam suara Ayah/Bunda** untuk setiap bacaan, sumber materi |
+| 👨‍👩‍👧 Orang Tua | Nama anak, karakter, pilihan qari, simpan semua suara untuk offline, Studio Rekam (opsional), sumber materi |
+| 📲 Pasang & Bagikan | Tombol pasang ke layar utama HP (Android, plus panduan untuk iPhone) dan tombol bagikan link |
 
 ## Suara
 

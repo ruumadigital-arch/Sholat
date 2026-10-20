@@ -29,10 +29,14 @@ document.addEventListener('ruma-mute', paintMute);
 muteBtn.onclick = () => { S.muted = !S.muted; save(); paintMute(); if (S.muted) A.stop(); };
 $('.stars').onclick = () => go('bintang');
 
+const toastHost = document.createElement('div');
+toastHost.className = 'toasts'; toastHost.setAttribute('role', 'status'); toastHost.setAttribute('aria-live', 'polite');
+document.body.append(toastHost);
 function toast(html, ms = 2600) {
   const t = document.createElement('div');
   t.className = 'toast'; t.innerHTML = html;
-  document.body.append(t);
+  toastHost.append(t);
+  while (toastHost.children.length > 3) toastHost.firstElementChild.remove();
   setTimeout(() => t.classList.add('out'), ms);
   setTimeout(() => t.remove(), ms + 400);
 }
@@ -73,7 +77,12 @@ function render() {
   $('#logo').hidden = !!fn;
   back.onclick = () => (fn === 'studio' ? go('ortu/ok') : args.length && fn !== 'ortu' ? go(fn) : go(''));
   view.scrollTop = 0; window.scrollTo(0, 0);
-  ROUTES[fn](...args);
+  Promise.resolve().then(() => ROUTES[fn](...args)).catch(err => {
+    console.error(err);
+    view.innerHTML = `<div class="end oops"><div class="got">🙏</div><h3>Maaf, ada yang belum beres</h3>
+      <p>Halaman ini gagal dibuka. Coba muat ulang, ya.</p>
+      <div class="row"><button class="pill" style="background:#2A8C80" onclick="location.reload()">↻ Muat ulang</button><button class="pill" style="background:#E6573F" data-go="">🏠 Beranda</button></div></div>`;
+  });
 }
 addEventListener('hashchange', render);
 
@@ -202,14 +211,38 @@ setInterval(() => {
     const id = dayKey() + k;
     if (now.mins >= t[k].mins && now.mins < t[k].mins + 1 && lastAlert !== id) {
       lastAlert = id;
-      A.sfx('adzan');
       const msg = `Sudah masuk waktu ${LABEL[k]}! Yuk berwudhu lalu shalat 🕌`;
       toast(`<span class="tbig">🕌</span><span><b>${LABEL[k]} ${t[k].text}</b><br>Yuk berwudhu lalu shalat!</span>`, 8000);
+      if (S.notif) A.sfx('adzan');
       if (S.notif && document.hidden && 'Notification' in window && Notification.permission === 'granted')
         navigator.serviceWorker?.ready.then(r => r.showNotification('RuMa Shalat', {body: msg, icon: 'icons/icon-192.png', tag: id}));
     }
   }
 }, 20000);
+
+// ---------- pasang di HP & bagikan ----------
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+addEventListener('appinstalled', () => { installEvt = null; toast('<span class="tbig">📲</span><span><b>RuMa Shalat sudah terpasang!</b><br>Buka dari layar utama HP.</span>', 4000); });
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+async function installApp() {
+  if (installEvt) {
+    installEvt.prompt();
+    await installEvt.userChoice.catch(() => null);
+    installEvt = null;
+    return;
+  }
+  if (isIOS()) toast('<span class="tbig">📲</span><span>Di iPhone/iPad: buka di <b>Safari</b>, ketuk tombol <b>Bagikan</b> (kotak dengan panah), lalu pilih <b>Tambah ke Layar Utama</b>.</span>', 8000);
+  else toast('<span class="tbig">📲</span><span>Buka menu browser <b>⋮</b>, lalu pilih <b>Instal aplikasi</b> atau <b>Tambahkan ke layar utama</b>.</span>', 8000);
+}
+async function shareApp() {
+  const url = location.origin + location.pathname;
+  const text = 'RuMa Shalat: panduan shalat lengkap untuk anak. Ada wudhu, gerakan, bacaan bersuara, praktik shalat, kuis, dan jadwal shalat.';
+  if (navigator.share) { try { await navigator.share({title: 'RuMa Shalat', text, url}); } catch {} return; }
+  try { await navigator.clipboard.writeText(`${text} ${url}`); toast('<span class="tbig">🔗</span><span>Link sudah disalin.<br>Tinggal tempel di WhatsApp.</span>'); }
+  catch { toast(`<span class="tbig">🔗</span><span>${esc(url)}</span>`, 8000); }
+}
 
 // =====================================================================
 // BERANDA
@@ -226,22 +259,31 @@ const MODS = [
   {r: 'kuis', t: 'Kuis', s: 'Mudah, sedang, sulit', ic: '🎯', bg: '#F4B63C', fg: '#2A2833'},
   {r: 'jadwal', t: 'Jadwal & Checklist', s: 'Sudah shalat belum?', ic: '⏰', bg: '#3F93BA'},
 ];
-ROUTES[''] = () => {
+function nextCard() {
   const np = nextPrayer(), today = S.check[dayKey()] || {};
+  return `<span class="nx-ic">${({subuh: '🌅', dzuhur: '☀️', ashar: '🌤️', maghrib: '🌇', isya: '🌙'})[np.k]}</span>
+      <span class="nx-tx"><small>${np.besok ? 'Besok' : 'Shalat berikutnya'} · ${esc(np.pl.name)}</small><b>${LABEL[np.k]} ${np.at}</b><small>${fmtLeft(np.left)} lagi</small></span>
+      <span class="nx-dots" aria-label="Checklist hari ini">${WAJIB_KEYS.map(k => `<i class="${today[k] ? 'on' : ''}" title="${LABEL[k]}"></i>`).join('')}</span>`;
+}
+ROUTES[''] = () => {
   const nm = S.name ? `, ${esc(S.name)}` : '';
   view.innerHTML = `
     <div class="hello">${MASCOT}<div><h1>Assalamu'alaikum${nm}!</h1><p>Yuk belajar shalat bareng RuMa 🌙</p></div></div>
-    <button class="nextcard" data-go="jadwal">
-      <span class="nx-ic">${({subuh: '🌅', dzuhur: '☀️', ashar: '🌤️', maghrib: '🌇', isya: '🌙'})[np.k]}</span>
-      <span class="nx-tx"><small>${np.besok ? 'Besok' : 'Shalat berikutnya'} · ${esc(np.pl.name)}</small><b>${LABEL[np.k]} ${np.at}</b><small>${fmtLeft(np.left)} lagi</small></span>
-      <span class="nx-dots" aria-label="Checklist hari ini">${WAJIB_KEYS.map(k => `<i class="${today[k] ? 'on' : ''}" title="${LABEL[k]}"></i>`).join('')}</span>
-    </button>
+    <button class="nextcard" data-go="jadwal" id="nextcard">${nextCard()}</button>
     <div class="mods">${MODS.map(m => `<button class="mod" data-go="${m.r}" style="background:${m.bg};color:${m.fg || '#fff'}">
       <span class="glyph">${m.fig ? poseSVG(m.fig, S.gender, {mat: false, cls: 'mini'}) : m.ic}</span><span><b>${m.t}</b><small>${m.s}</small></span></button>`).join('')}</div>
     <div class="homefoot">
       <button class="modebtn" data-go="bintang"><span class="ic" style="background:#FCE7B5">⭐</span><span><b>Bintangku</b><small>${S.stars} bintang · ${Object.keys(S.badges).length}/${BADGES.length} lencana</small></span></button>
-      <button class="modebtn" data-go="ortu"><span class="ic" style="background:#E3F4EF">👨‍👩‍👧</span><span><b>Untuk Orang Tua</b><small>Pengaturan, rekam suara & sumber materi</small></span></button>
+      <button class="modebtn" data-go="ortu"><span class="ic" style="background:#E3F4EF">👨‍👩‍👧</span><span><b>Untuk Orang Tua</b><small>Pengaturan, suara offline & sumber materi</small></span></button>
+    </div>
+    <div class="promo">
+      ${standalone() ? '' : `<button class="modebtn" id="install"><span class="ic" style="background:#DDF3E3">📲</span><span><b>Pasang di HP</b><small>Buka seperti aplikasi</small></span></button>`}
+      <button class="modebtn" id="share"><span class="ic" style="background:#E5E0F6">📤</span><span><b>Bagikan</b><small>Ajak teman belajar shalat</small></span></button>
     </div>`;
+  $('#install') && ($('#install').onclick = installApp);
+  $('#share').onclick = shareApp;
+  const iv = setInterval(() => { const c = $('#nextcard'); if (c) c.innerHTML = nextCard(); }, 30000);
+  onLeave(() => clearInterval(iv));
 };
 view.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) { A.sfx('tick'); go(g.dataset.go); } });
 
@@ -707,7 +749,7 @@ ROUTES.jadwal = () => {
     <h3 class="sec">✅ Checklist shalat hari ini</h3><div class="check" id="check"></div>
     <h3 class="sec">📅 7 hari terakhir</h3><div class="week" id="week"></div>
     <h3 class="sec">🕋 Arah kiblat</h3><div class="qibla" id="qibla"></div>
-    <label class="switch"><input type="checkbox" id="notif" ${S.notif ? 'checked' : ''}> <span>Bunyikan pengingat saat masuk waktu shalat (selama aplikasi terbuka)</span></label>
+    <label class="switch"><input type="checkbox" id="notif" ${S.notif ? 'checked' : ''}> <span>Bunyikan pengingat dan tampilkan notifikasi saat masuk waktu shalat (selama aplikasi terbuka)</span></label>
     <p class="hint">Jadwal dihitung dengan kriteria Kemenag RI (Subuh −20°, Isya −18°) dan bisa berbeda 1–2 menit dengan jadwal masjid setempat.</p>`;
   const d = new Date();
   let hij = '';
@@ -809,21 +851,23 @@ ROUTES.ortu = unlocked => {
       <label>Nama panggilan <input id="nm" maxlength="20" value="${esc(S.name)}" placeholder="mis. Aisyah"></label>
       <div><span class="lbl">Karakter</span>${genderToggle()}</div>
     </div>
-    <h3 class="sec">🎙️ Suara Ayah/Bunda</h3>
-    <button class="modebtn" data-go="studio"><span class="ic" style="background:#E5E0F6">🎙️</span>
-      <span><b>Studio Rekam</b><small id="recsum">Rekam bacaan Arab & soal kuis dengan suaramu</small></span></button>
-    <h3 class="sec">Suara lainnya</h3>
+    <h3 class="sec">🔈 Suara</h3>
     <div class="stage text form">
+      <p>Semua bacaan Arab, doa, niat, dzikir, dan soal kuis dibacakan dengan <b>suara asli RuMa</b>.</p>
+      <div class="offline"><button class="pill" style="background:#2A8C80" id="offline">⬇️ Simpan semua suara untuk offline</button>
+        <div class="pbar" id="offbar" hidden><i></i></div><small class="hint" id="offtxt"></small></div>
       <label>Qari murattal Al-Qur'an <select id="qari">${Object.entries(A.RECITERS).map(([k, v]) => `<option value="${k}"${k === S.reciter ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
-      <label>Kecepatan suara bawaan HP <input type="range" id="rate" min="0.5" max="1.1" step="0.05" value="${S.rate}"></label>
-      <p class="hint">Suara bawaan HP dipakai untuk bacaan yang belum direkam dan untuk arti bahasa Indonesia.
-      ${A.hasArabicVoice() ? '✅ HP ini punya suara bahasa Arab bawaan.' : '⚠️ HP ini tidak punya suara bahasa Arab bawaan, jadi yang dibacakan tulisan latinnya.'}
-      Murattal Al-Qur'an diputar dari EveryAyah dan butuh internet.</p>
+      <p class="hint">Murattal Al-Fatihah, surat pendek, dan Ayat Kursi diputar dari EveryAyah, jadi butuh internet.</p>
+      <label>Kecepatan suara HP untuk tombol "Arti" <input type="range" id="rate" min="0.5" max="1.1" step="0.05" value="${S.rate}"></label>
     </div>
+    <h3 class="sec">🎙️ Ganti dengan suara sendiri (opsional)</h3>
+    <button class="modebtn" data-go="studio"><span class="ic" style="background:#E5E0F6">🎙️</span>
+      <span><b>Studio Rekam</b><small id="recsum">Rekam ulang bacaan dengan suara Ayah/Bunda, khusus di HP ini</small></span></button>
     <h3 class="sec">Tentang materi</h3>
     <div class="stage text">
       <p>Materi RuMa Shalat disusun mengikuti tuntunan <b>madzhab Syafi'i</b> yang umum diajarkan di TPA dan sekolah di Indonesia (misalnya doa qunut Subuh dan 13 rukun shalat).</p>
-      <p>📖 Teks Al-Qur'an: Tanzil (quran-simple). Terjemahan: Kementerian Agama RI. Murattal: EveryAyah.com.</p>
+      <p>📖 Teks Al-Qur'an: <a href="https://tanzil.net" target="_blank" rel="noopener">Tanzil</a> (quran-simple). Terjemahan: Kementerian Agama RI. Murattal: <a href="https://everyayah.com" target="_blank" rel="noopener">EveryAyah.com</a>.</p>
+      <p>🎙️ Suara bacaan dan soal kuis: rekaman RuMa Digital.</p>
       <p>⏰ Jadwal shalat dihitung di perangkat dengan kriteria Kemenag RI.</p>
       <p class="note">🙏 Mohon dampingi anak saat belajar dan tanyakan kepada guru ngaji atau ustadz jika ada perbedaan dengan yang diajarkan di lingkungan Ayah/Bunda.</p>
     </div>
@@ -832,7 +876,14 @@ ROUTES.ortu = unlocked => {
   $('#nm').oninput = e => { S.name = e.target.value.trim(); save(); };
   wireGender(() => {});
   $('#qari').onchange = e => { S.reciter = e.target.value; save(); };
-  $('#rate').onchange = e => { S.rate = +e.target.value; save(); A.play('takbir2'); };
+  $('#rate').onchange = e => { S.rate = +e.target.value; save(); A.play('takbir', {arti: true, tag: 'rate'}); };
+  $('#offline').onclick = async e => {
+    const btn = e.currentTarget, bar = $('#offbar'), txt = $('#offtxt');
+    btn.disabled = true; bar.hidden = false;
+    const res = await A.saveOffline((done, total) => { $('i', bar).style.width = `${done / total * 100}%`; txt.textContent = `${done} / ${total}`; });
+    btn.disabled = false;
+    txt.textContent = res.failed ? `${res.ok} tersimpan, ${res.failed} gagal. Coba lagi saat internet lancar.` : `✅ ${res.ok} suara tersimpan. Bisa dipakai tanpa internet.`;
+  };
   $('#reset').onclick = () => { if (confirm('Yakin hapus semua bintang, lencana, kuis, dan checklist? Rekaman suara tidak ikut terhapus.')) { resetAll(); toast('Progres sudah dihapus.'); go(''); } };
   A.recKeys().then(keys => {
     const has = new Set(keys), n = set => studioItems(set).filter(it => has.has(it.key)).length;
@@ -1009,4 +1060,17 @@ ROUTES.studio = async (set = 'bacaan') => {
 
 // ---------- mulai ----------
 render();
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // versi baru aktif: muat ulang sekali agar pengguna langsung memakai versi terbaru
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded) return;
+    reloaded = true;
+    // jangan memotong praktik, kuis, atau rekaman yang sedang berjalan
+    if (['praktik', 'kuis', 'studio'].includes(document.body.dataset.route)) {
+      toast(`<span class="tbig">✨</span><span><b>Versi baru RuMa Shalat sudah siap.</b><br><button class="pill" style="background:#2A8C80;margin-top:6px" onclick="location.reload()">Muat ulang</button></span>`, 15000);
+    } else location.reload();
+  });
+  navigator.serviceWorker.register('sw.js').then(r => r.update()).catch(() => {});
+}
