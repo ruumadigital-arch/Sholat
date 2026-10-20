@@ -19,7 +19,7 @@ Materi mengikuti **madzhab Syafi'i** seperti yang umum diajarkan di TPA dan seko
 | 🎯 Kuis | ±100 soal: Mudah (4–6 th), Sedang (7–9 th), Sulit (10–12 th), Tantangan Kilat 60 detik. Ada soal bergambar, soal teks Arab, dan soal menyusun urutan |
 | ⏰ Jadwal & Checklist | Jadwal shalat 49 kota (kriteria Kemenag) atau lokasi GPS, hitung mundur, checklist 5 waktu, riwayat 7 hari, arah kiblat |
 | ⭐ Bintangku | Bintang & 16 lencana |
-| 👨‍👩‍👧 Orang Tua | Nama anak, karakter, pilihan qari, simpan semua suara untuk offline, Studio Rekam (opsional), sumber materi |
+| 👨‍👩‍👧 Orang Tua | Nama anak, karakter, pilihan qari, simpan semua suara untuk offline, sumber materi (Studio Rekam disembunyikan, buka lewat `/#/studio`) |
 | 📲 Pasang & Offline | Tombol pasang ke layar utama HP (Android, plus panduan untuk iPhone) dan tombol simpan semua suara untuk offline |
 
 ## Suara
@@ -65,7 +65,7 @@ powershell -ExecutionPolicy Bypass -File tools/olah-suara/server.ps1 -Masuk "C:\
 
 ### Merekam suara sendiri lewat Studio Rekam (berlaku untuk semua pengguna)
 
-1. Buka aplikasi, masuk **Untuk Orang Tua → Studio Rekam**.
+1. Buka **Studio Rekam** lewat link khusus `<alamat aplikasi>/#/studio` (misalnya http://localhost:8080/#/studio), lalu jawab soal hitungan. Studio sengaja tidak ditampilkan di menu agar tidak membingungkan pengguna umum.
 2. Rekam naskahnya satu per satu: **63 bacaan Arab** (bacaan shalat, niat, wudhu, dzikir, doa) dan **96 soal kuis**. Di laptop: Spasi = rekam/berhenti, ← → = pindah naskah, Enter = dengar.
 3. Tekan **Ekspor .zip**, lalu pasang hasilnya ke aplikasi:
    ```

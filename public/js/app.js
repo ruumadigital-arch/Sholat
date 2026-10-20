@@ -70,6 +70,7 @@ function render() {
   cleanup.forEach(fn => { try { fn(); } catch {} }); cleanup = [];
   const [r = '', ...args] = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
   const fn = ROUTES[r] ? r : '';
+  if (fn !== 'ortu' && fn !== 'studio') afterGate = null; // batal menuju studio bila pengguna pindah halaman
   $('#title').textContent = TITLE[fn];
   document.body.dataset.route = fn || 'home';
   const back = $('#back');
@@ -841,14 +842,19 @@ ROUTES.bintang = () => {
 // =====================================================================
 // ORANG TUA
 // =====================================================================
-let gateOk = false;
+let gateOk = false, afterGate = null;
 
 ROUTES.ortu = unlocked => {
   if (unlocked !== 'ok') {
     const a = 3 + Math.floor(Math.random() * 6), b = 4 + Math.floor(Math.random() * 5);
     view.innerHTML = `<div class="stage text center"><h3>👨‍👩‍👧 Khusus Orang Tua</h3><p>Jawab dulu ya: berapa <b>${a} + ${b}</b>?</p>
       <input class="gate" id="gate" inputmode="numeric" autocomplete="off" aria-label="Jawaban"><button class="bigbtn" id="gok">Masuk</button></div>`;
-    const ok = () => { if (+$('#gate').value === a + b) go('ortu/ok'); else { A.sfx('no'); $('#gate').value = ''; toast('Jawaban belum tepat 🙂'); } };
+    const ok = () => {
+      if (+$('#gate').value !== a + b) { A.sfx('no'); $('#gate').value = ''; return toast('Jawaban belum tepat 🙂'); }
+      gateOk = true;
+      const to = afterGate || 'ortu/ok'; afterGate = null;
+      go(to);
+    };
     $('#gok').onclick = ok; $('#gate').onkeydown = e => e.key === 'Enter' && ok(); $('#gate').focus();
     return;
   }
@@ -868,9 +874,6 @@ ROUTES.ortu = unlocked => {
       <p class="hint">Murattal Al-Fatihah, surat pendek, dan Ayat Kursi diputar dari EveryAyah, jadi butuh internet.</p>
       <label>Kecepatan suara HP untuk tombol "Arti" <input type="range" id="rate" min="0.5" max="1.1" step="0.05" value="${S.rate}"></label>
     </div>
-    <h3 class="sec">🎙️ Ganti dengan suara sendiri (opsional)</h3>
-    <button class="modebtn" data-go="studio"><span class="ic" style="background:#E5E0F6">🎙️</span>
-      <span><b>Studio Rekam</b><small id="recsum">Rekam ulang bacaan dengan suara Ayah/Bunda, khusus di HP ini</small></span></button>
     <h3 class="sec">Tentang materi</h3>
     <div class="stage text">
       <p>Materi RuMa Shalat disusun mengikuti tuntunan <b>madzhab Syafi'i</b> yang umum diajarkan di TPA dan sekolah di Indonesia (misalnya doa qunut Subuh dan 13 rukun shalat).</p>
@@ -888,18 +891,14 @@ ROUTES.ortu = unlocked => {
   $('#offline').onclick = async e => { if (await saveOfflineFrom(e.currentTarget, $('#offtxt'))) $('#offtxt').textContent = '✅ Semua suara sudah tersimpan di HP ini.'; };
   A.offlineMissing().then(n => { const t = $('#offtxt'); if (t && n === 0 && 'caches' in window) t.textContent = '✅ Semua suara sudah tersimpan di HP ini.'; });
   $('#reset').onclick = () => { if (confirm('Yakin hapus semua bintang, lencana, kuis, dan checklist? Rekaman suara tidak ikut terhapus.')) { resetAll(); toast('Progres sudah dihapus.'); go(''); } };
-  A.recKeys().then(keys => {
-    const has = new Set(keys), n = set => studioItems(set).filter(it => has.has(it.key)).length;
-    const el = $('#recsum');
-    if (el && keys.length) el.textContent = `Bacaan Arab ${n('bacaan')}/${studioItems('bacaan').length} · Soal kuis ${n('kuis')}/${studioItems('kuis').length} sudah direkam`;
-  });
 };
 
 // =====================================================================
 // STUDIO REKAM
 // =====================================================================
+// Tidak ditampilkan di menu. Dibuka lewat link khusus: <alamat aplikasi>/#/studio
 ROUTES.studio = async (set = 'bacaan') => {
-  if (!gateOk) return go('ortu');
+  if (!gateOk) { afterGate = location.hash.replace(/^#\/?/, ''); return go('ortu'); }
   if (set !== 'kuis') set = 'bacaan';
   const items = studioItems(set);
   const keys = new Set(await A.recKeys());

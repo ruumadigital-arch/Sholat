@@ -1,6 +1,6 @@
 // Service worker: aplikasi tetap bisa dibuka tanpa internet.
 // Naikkan VERSION setiap kali file aplikasi diubah agar HP mengambil versi terbaru.
-const VERSION = 'ruma-shalat-v7';
+const VERSION = 'ruma-shalat-v8';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest',
   'js/app.js', 'js/content.js', 'js/quran.js', 'js/figure.js', 'js/praytimes.js', 'js/store.js', 'js/audio.js', 'js/zip.js', 'js/naskah.js',
