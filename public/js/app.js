@@ -344,7 +344,7 @@ ROUTES.gerakan = () => {
   const fig = $('#fig');
   const paint = (anim = true) => {
     const g = GERAKAN[i];
-    if (anim) animateTo(fig, g.pose, S.gender); else fig.innerHTML = poseSVG(g.pose, S.gender);
+    animateTo(fig, g.pose, S.gender, {instant: !anim});
     $('#gbody').innerHTML = `<div class="gcap"><small>Gerakan ${i + 1} dari ${GERAKAN.length}</small><h3>${esc(g.t)}</h3><p>${esc(g.d)}</p>${g.tip ? `<p class="note">💡 ${esc(g.tip)}</p>` : ''}</div>
       ${stepNav(i, GERAKAN.length)}
       ${(g.read || []).map((id, k) => k === 0 ? readingCard(id) : `<details class="more"><summary>${esc(id.startsWith('q:') ? 'Al-Fatihah' : R[id].t)}</summary>${readingCard(id)}</details>`).join('')}`;
@@ -354,7 +354,6 @@ ROUTES.gerakan = () => {
     });
   };
   wireGender(() => paint(false));
-  fig.innerHTML = poseSVG(GERAKAN[0].pose, S.gender);
   paint(false);
 };
 
@@ -440,7 +439,7 @@ function player(pk, steps, autoInit) {
     <div class="pctl"><button class="round" id="pprev" aria-label="Sebelumnya">⏮</button><button class="round big" id="pplay" aria-label="Putar atau jeda"></button><button class="round go" id="pnext" aria-label="Berikutnya">⏭</button></div>
     <div id="pread"></div>`;
   const fig = $('#fig');
-  fig.innerHTML = poseSVG(steps[0].pose, S.gender);
+  animateTo(fig, steps[0].pose, S.gender, {instant: true});
   onLeave(() => { alive = false; clearTimeout(timer); });
   const paintPlay = () => { $('#pplay').textContent = auto ? '⏸' : '▶'; $('#pplay').classList.toggle('on', auto); };
   async function run() {
