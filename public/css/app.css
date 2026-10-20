@@ -394,13 +394,10 @@ details.pr>summary::-webkit-details-marker{display:none}
 .sno{font-family:Fredoka,sans-serif;color:var(--purple);font-size:15px;margin-right:4px}
 
 /* pasang & bagikan, simpan offline, pesan error */
-.promo{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+.promo{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px}
 .promo .modebtn{padding:12px 14px}
 .promo .modebtn b{font-size:17px}
 .promo .modebtn small{font-size:13px}
-@media (max-width:480px){.promo{grid-template-columns:1fr}}
 .offline{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.offline .pbar{min-width:140px}
 .oops{text-align:center}
 .oops .got{font-size:56px}
-.promo > :only-child{grid-column:1/-1}

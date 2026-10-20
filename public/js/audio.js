@@ -83,6 +83,17 @@ let files = {};
 const filesReady = fetch('audio/daftar.json').then(r => r.ok ? r.json() : {}).then(j => { files = j || {}; }).catch(() => {});
 export const fileVoices = () => files;
 
+// Berapa suara rekaman yang belum tersimpan di HP (0 bila HP tidak mendukung penyimpanan offline).
+export async function offlineMissing() {
+  await filesReady;
+  if (!('serviceWorker' in navigator) || !('caches' in window)) return 0;
+  let miss = 0;
+  for (const f of new Set(Object.values(files))) {
+    try { if (!(await caches.match('audio/' + f))) miss++; } catch { return 0; }
+  }
+  return miss;
+}
+
 // Simpan semua suara rekaman ke cache service worker agar bisa diputar tanpa internet.
 export async function saveOffline(progress) {
   await filesReady;

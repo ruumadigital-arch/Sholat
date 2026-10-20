@@ -236,12 +236,17 @@ async function installApp() {
   if (isIOS()) toast('<span class="tbig">📲</span><span>Di iPhone/iPad: buka di <b>Safari</b>, ketuk tombol <b>Bagikan</b> (kotak dengan panah), lalu pilih <b>Tambah ke Layar Utama</b>.</span>', 8000);
   else toast('<span class="tbig">📲</span><span>Buka menu browser <b>⋮</b>, lalu pilih <b>Instal aplikasi</b> atau <b>Tambahkan ke layar utama</b>.</span>', 8000);
 }
-async function shareApp() {
-  const url = location.origin + location.pathname;
-  const text = 'RuMa Shalat: panduan shalat lengkap untuk anak. Ada wudhu, gerakan, bacaan bersuara, praktik shalat, kuis, dan jadwal shalat.';
-  if (navigator.share) { try { await navigator.share({title: 'RuMa Shalat', text, url}); } catch {} return; }
-  try { await navigator.clipboard.writeText(`${text} ${url}`); toast('<span class="tbig">🔗</span><span>Link sudah disalin.<br>Tinggal tempel di WhatsApp.</span>'); }
-  catch { toast(`<span class="tbig">🔗</span><span>${esc(url)}</span>`, 8000); }
+// unduh semua suara rekaman ke HP; btn & small dipakai untuk menampilkan progres
+async function saveOfflineFrom(btn, small) {
+  btn.disabled = true;
+  const res = await A.saveOffline((done, total) => { small.textContent = `Menyimpan suara ${done} dari ${total}…`; });
+  btn.disabled = false;
+  if (res.failed) {
+    small.textContent = `${res.failed} suara belum tersimpan. Coba lagi saat internet lancar.`;
+    return false;
+  }
+  toast(`<span class="tbig">✅</span><span><b>${res.ok} suara tersimpan.</b><br>RuMa Shalat bisa dipakai tanpa internet.</span>`, 4000);
+  return true;
 }
 
 // =====================================================================
@@ -276,12 +281,15 @@ ROUTES[''] = () => {
       <button class="modebtn" data-go="bintang"><span class="ic" style="background:#FCE7B5">⭐</span><span><b>Bintangku</b><small>${S.stars} bintang · ${Object.keys(S.badges).length}/${BADGES.length} lencana</small></span></button>
       <button class="modebtn" data-go="ortu"><span class="ic" style="background:#E3F4EF">👨‍👩‍👧</span><span><b>Untuk Orang Tua</b><small>Pengaturan, suara offline & sumber materi</small></span></button>
     </div>
-    <div class="promo">
+    <div class="promo" id="promo">
       ${standalone() ? '' : `<button class="modebtn" id="install"><span class="ic" style="background:#DDF3E3">📲</span><span><b>Pasang di HP</b><small>Buka seperti aplikasi</small></span></button>`}
-      <button class="modebtn" id="share"><span class="ic" style="background:#E5E0F6">📤</span><span><b>Bagikan</b><small>Ajak teman belajar shalat</small></span></button>
+      <button class="modebtn" id="offline" hidden><span class="ic" style="background:#E5E0F6">⬇️</span><span><b>Simpan untuk offline</b><small id="offsmall">Suara tetap jalan tanpa internet</small></span></button>
     </div>`;
   $('#install') && ($('#install').onclick = installApp);
-  $('#share').onclick = shareApp;
+  const off = $('#offline');
+  // tampilkan hanya bila masih ada suara yang belum tersimpan di HP
+  A.offlineMissing().then(n => { if (n > 0 && off.isConnected) off.hidden = false; });
+  off.onclick = async () => { if (await saveOfflineFrom(off, $('#offsmall'))) off.hidden = true; };
   const iv = setInterval(() => { const c = $('#nextcard'); if (c) c.innerHTML = nextCard(); }, 30000);
   onLeave(() => clearInterval(iv));
 };
@@ -855,7 +863,7 @@ ROUTES.ortu = unlocked => {
     <div class="stage text form">
       <p>Semua bacaan Arab, doa, niat, dzikir, dan soal kuis dibacakan dengan <b>suara asli RuMa</b>.</p>
       <div class="offline"><button class="pill" style="background:#2A8C80" id="offline">⬇️ Simpan semua suara untuk offline</button>
-        <div class="pbar" id="offbar" hidden><i></i></div><small class="hint" id="offtxt"></small></div>
+        <small class="hint" id="offtxt"></small></div>
       <label>Qari murattal Al-Qur'an <select id="qari">${Object.entries(A.RECITERS).map(([k, v]) => `<option value="${k}"${k === S.reciter ? ' selected' : ''}>${v}</option>`).join('')}</select></label>
       <p class="hint">Murattal Al-Fatihah, surat pendek, dan Ayat Kursi diputar dari EveryAyah, jadi butuh internet.</p>
       <label>Kecepatan suara HP untuk tombol "Arti" <input type="range" id="rate" min="0.5" max="1.1" step="0.05" value="${S.rate}"></label>
@@ -877,13 +885,8 @@ ROUTES.ortu = unlocked => {
   wireGender(() => {});
   $('#qari').onchange = e => { S.reciter = e.target.value; save(); };
   $('#rate').onchange = e => { S.rate = +e.target.value; save(); A.play('takbir', {arti: true, tag: 'rate'}); };
-  $('#offline').onclick = async e => {
-    const btn = e.currentTarget, bar = $('#offbar'), txt = $('#offtxt');
-    btn.disabled = true; bar.hidden = false;
-    const res = await A.saveOffline((done, total) => { $('i', bar).style.width = `${done / total * 100}%`; txt.textContent = `${done} / ${total}`; });
-    btn.disabled = false;
-    txt.textContent = res.failed ? `${res.ok} tersimpan, ${res.failed} gagal. Coba lagi saat internet lancar.` : `✅ ${res.ok} suara tersimpan. Bisa dipakai tanpa internet.`;
-  };
+  $('#offline').onclick = async e => { if (await saveOfflineFrom(e.currentTarget, $('#offtxt'))) $('#offtxt').textContent = '✅ Semua suara sudah tersimpan di HP ini.'; };
+  A.offlineMissing().then(n => { const t = $('#offtxt'); if (t && n === 0 && 'caches' in window) t.textContent = '✅ Semua suara sudah tersimpan di HP ini.'; });
   $('#reset').onclick = () => { if (confirm('Yakin hapus semua bintang, lencana, kuis, dan checklist? Rekaman suara tidak ikut terhapus.')) { resetAll(); toast('Progres sudah dihapus.'); go(''); } };
   A.recKeys().then(keys => {
     const has = new Set(keys), n = set => studioItems(set).filter(it => has.has(it.key)).length;
