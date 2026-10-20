@@ -88,6 +88,8 @@ Lalu buka http://localhost:8080.
 
 ## Deploy ke Cloudflare
 
+Alamat aplikasi: **https://rumasholat.ruumadigital.workers.dev** (Worker `rumasholat`, repo `ruumadigital-arch/Sholat`). Setiap `git push` ke branch `main` otomatis memperbarui aplikasi.
+
 Sama seperti RuMa Belajar: `wrangler.jsonc` menyajikan folder `public/` sebagai static assets. Hubungkan repo ini ke Cloudflare Workers (Workers Builds), atau jalankan `npx wrangler deploy`.
 
 **Setiap kali mengubah file aplikasi**, naikkan `VERSION` di `public/sw.js` (misalnya `ruma-shalat-v2`) supaya HP pengguna mengambil versi terbaru.
